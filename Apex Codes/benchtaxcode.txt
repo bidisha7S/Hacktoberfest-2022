@@ -1,0 +1,116 @@
+public class OpportunityTaxHandler {
+    public static void createBenchTaxParent(List<Opportunity> opps, Map<Id, Opportunity> oldOpps) {
+        ID BenchTaxParentRecordTypeId = Schema.SObjectType.BenchTax__c.getRecordTypeInfosByName().get('BenchTax Parent').getRecordTypeId();
+            Set<Id> setOppIds = new Set<Id>();
+        Map<Id, Id> MapAccountAndOppIds = new Map<Id, Id>(); //taking id for opportunities and accounts
+        Map<Id, Id> MapAccountAndOppIdWithBenchTax = new Map<Id, Id>(); //taking id for account and opportunities which have benchtax
+        Map<Id, Id> MapAccountAndOppIdsWithoutBenchTax  = new Map<Id, Id>(); // taking id for account and opportunities which do not have benchtax
+        Map<Id, Id> MapAccountWithBenchTaxIds  = new Map<Id, Id>(); // account with benchtax id
+        Map<Id, BenchTax__c> MapAccountAndBenchTaxToBeInserted = new Map<Id, BenchTax__c>(); //
+        List<Account> accountsToBeUpdated = new List<Account>();
+        List<BenchTax__c> benchTaxToBeInserted = new List<BenchTax__c>();
+        for(Opportunity op:opps){
+            if(op.StageName == 'Closed Won' && op.StageName != oldOpps.get(op.Id).StageName) {
+                setOppIds.add(op.Id);
+                MapAccountAndOppIds.put(op.AccountId, op.Id);
+
+		}
+
+	}
+        if(MapAccountAndOppIds.size() > 0) {
+            for(Account acc : [Select Id,Name, BenchTax_Parent__c From Account Where ID IN : MapAccountAndOppIds.keySet()]) {
+                if(acc.BenchTax_Parent__c != null) {
+                    MapAccountAndOppIdWithBenchTax.put(acc.Id, MapAccountAndOppIds.get(acc.ID));
+                    MapAccountWithBenchTaxIds.put(acc.Id, acc.BenchTax_Parent__c);
+
+			} else {
+                MapAccountAndOppIdsWithoutBenchTax.put(acc.Id, MapAccountAndOppIds.get(acc.ID));
+                MapAccountAndBenchTaxToBeInserted.put(acc.Id, new BenchTax__c(Name = acc.Name ,RecordTypeId = BenchTaxParentRecordTypeId));
+
+			}
+
+			
+
+		}
+            if(MapAccountAndBenchTaxToBeInserted.size() > 0 ) {
+                insert MapAccountAndBenchTaxToBeInserted.values();
+                for(Id accId: MapAccountAndBenchTaxToBeInserted.keySet()) {
+                    accountsToBeUpdated.add(new Account(Id = accId,BenchTax_Parent__c =MapAccountAndBenchTaxToBeInserted.get(accId).Id));
+
+			}
+                update accountsToBeUpdated;
+
+				
+
+		}
+            if(MapAccountAndOppIdsWithoutBenchTax.size()>0){
+                for(OpportunityLineItem oLI: [Select Id, OpportunityId, Year__c, Opportunity.AccountId, Opportunity.Account.Name, Product2.Name, Product2.Family From OpportunityLineItem Where OpportunityID IN : MapAccountAndOppIdsWithoutBenchTax.values()]) {
+                System.debug('oLI-->'+oLI);
+                BenchTax__c bT = new BenchTax__c();
+                bT.Name = oLI.Opportunity.Account.Name + oLI.Year__c;
+                bT.BenchTax_Parent__c = MapAccountAndBenchTaxToBeInserted.get(oLI.Opportunity.AccountId).Id;
+                bT.Account__c = oLI.Opportunity.AccountId;
+                bT.Related_Opportunity__c = oLI.OpportunityID;
+                bT.Tax_Year_Sold__c = oLI.Year__c;
+                bT.Tax_Year_Status__c = 'Not Started';
+                if(oLI.Product2.Name.contains('Personal')) {
+                    bT.Personal_Tax_Year_Status__c = 'Not Started';
+
+				}	
+                if(oLI.Product2.Name.contains('Business')) {
+                    bT.Business_Tax_Year_Status__c = 'Not Started';
+
+				}
+                benchTaxToBeInserted.add(bT);
+
+			}
+            System.debug('benchTaxToBeInserted-->'+benchTaxToBeInserted);
+            if(benchTaxToBeInserted.size() >0) {
+                insert benchTaxToBeInserted;
+
+		}
+
+                
+            }
+            
+	}
+
+
+
+}
+}
+
+/* if(Opportunity Product.Year__c==Tax_Year_Sold__c){
+ * if(oLI.Product2.Name.contains('Personal')) {
+                    bT.Personal_Tax_Year_Status__c = 'Not Started';
+
+}
+
+if(oLI.Product2.Name.contains('Business')) {
+                    bT.Business_Tax_Year_Status__c = 'Not Started';
+
+				}
+                benchTaxToBeInserted.add(bT);
+
+}
+
+
+}
+if(Opportunity Product.Year__c!=Tax_Year_Sold__c){
+bT.Name = oLI.Opportunity.Account.Name + oLI.Year__c;
+                bT.BenchTax_Parent__c = MapAccountAndBenchTaxToBeInserted.get(oLI.Opportunity.AccountId).Id;
+                bT.Account__c = oLI.Opportunity.AccountId;
+                bT.Related_Opportunity__c = oLI.OpportunityID;
+                bT.Tax_Year_Sold__c = oLI.Year__c;
+                bT.Tax_Year_Status__c = 'Not Started';
+                if(oLI.Product2.Name.contains('Personal')) {
+                    bT.Personal_Tax_Year_Status__c = 'Not Started';
+
+				}	
+                if(oLI.Product2.Name.contains('Business')) {
+                    bT.Business_Tax_Year_Status__c = 'Not Started';
+
+				}
+                benchTaxToBeInserted.add(bT);
+
+			}*/
